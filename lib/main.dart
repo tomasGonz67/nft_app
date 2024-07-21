@@ -1,19 +1,51 @@
 import 'package:flutter/material.dart';
-import 'package:web3dart/web3dart.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:web3dart/web3dart.dart';
+import 'package:audioplayers/audioplayers.dart'; // Import for audio playback
+import 'package:path_provider/path_provider.dart'; // Import for file saving
+import 'dart:typed_data';
+import 'dart:io'; // Import for File class
 import 'web3.dart'; // Make sure this points to your web3.dart file
+import 'ibm_watson_service.dart'; // Import the IBM Watson service
 
 void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load(fileName: ".env");
+
   runApp(MyApp());
 }
-
 
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: MintNFTScreen(),
+      home: HomeScreen(), // Updated to show both screens
+    );
+  }
+}
+
+class HomeScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        appBar: AppBar(
+          title: Text('NFT Minting & Text-to-Speech'),
+          bottom: TabBar(
+            tabs: [
+              Tab(text: 'Mint NFT'),
+              Tab(text: 'Text-to-Speech'),
+            ],
+          ),
+        ),
+        body: TabBarView(
+          children: [
+            MintNFTScreen(),
+            TextToSpeechScreen(),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -74,6 +106,63 @@ class _MintNFTScreenState extends State<MintNFTScreen> {
             ElevatedButton(
               onPressed: _mintNFT,
               child: Text('Mint NFT'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class TextToSpeechScreen extends StatefulWidget {
+  @override
+  _TextToSpeechScreenState createState() => _TextToSpeechScreenState();
+}
+
+class _TextToSpeechScreenState extends State<TextToSpeechScreen> {
+  final _textController = TextEditingController();
+  final IBMWatsonService _ibmWatsonService = IBMWatsonService();
+  final AudioPlayer _audioPlayer = AudioPlayer();
+
+  void _convertTextToSpeech() async {
+    final text = _textController.text;
+    try {
+      final response = await _ibmWatsonService.synthesizeSpeech(text);
+      final Uint8List audioData = response.bodyBytes;
+
+      // Play the audio data
+      await _audioPlayer.playBytes(audioData);
+      print('Audio data received and playing.');
+
+      // Optionally, save the audio data
+      final directory = await getTemporaryDirectory();
+      final filePath = '${directory.path}/output.mp3';
+      final file = File(filePath);
+      await file.writeAsBytes(audioData);
+      print('Audio file saved to $filePath.');
+    } catch (e) {
+      print("Error getting speech: $e");
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('IBM Watson Text-to-Speech')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _textController,
+              decoration: InputDecoration(
+                labelText: 'Enter text to convert to speech',
+              ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _convertTextToSpeech,
+              child: Text('Convert Text to Speech'),
             ),
           ],
         ),
